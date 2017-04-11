@@ -9,7 +9,7 @@ allprojects {
 ```
 ```
 dependencies {
-        compile 'com.github.CodyyAndroid:Converter-fastjson:v0.0.1'
+        compile 'com.github.CodyyAndroid:Converter-fastjson:v0.0.2'
 }
 ```
 ```
