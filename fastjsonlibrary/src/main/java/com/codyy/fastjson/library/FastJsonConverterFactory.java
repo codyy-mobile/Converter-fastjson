@@ -1,8 +1,16 @@
 package com.codyy.fastjson.library;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.parser.Feature;
+import com.alibaba.fastjson.parser.ParserConfig;
+import com.alibaba.fastjson.serializer.SerializeConfig;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
+import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Converter;
@@ -14,24 +22,117 @@ import retrofit2.Retrofit;
 
 public class FastJsonConverterFactory extends Converter.Factory {
 
-    public static FastJsonConverterFactory create() {
-        return new FastJsonConverterFactory();
+    private static final MediaType MEDIA_TYPE = MediaType.parse("application/json; charset=UTF-8");
+    private static final Feature[] EMPTY_SERIALIZER_FEATURES = new Feature[0];
+
+    private ParserConfig parserConfig = ParserConfig.getGlobalInstance();
+    private int featureValues = JSON.DEFAULT_PARSER_FEATURE;
+    private Feature[] features;
+
+    private SerializeConfig serializeConfig;
+    private SerializerFeature[] serializerFeatures;
+
+    public FastJsonConverterFactory() {
     }
 
-    /**
-     * 需要重写父类中responseBodyConverter，该方法用来转换服务器返回数据
-     */
     @Override
-    public Converter<ResponseBody, ?> responseBodyConverter(Type type, Annotation[] annotations, Retrofit retrofit) {
-        return new FastJsonResponseBodyConverter<>(type);
+    public Converter<ResponseBody, ?> responseBodyConverter(Type type, //
+                                                            Annotation[] annotations, //
+                                                            Retrofit retrofit) {
+        return new ResponseBodyConverter<ResponseBody>(type);
     }
 
-    /**
-     * 需要重写父类中responseBodyConverter，该方法用来转换发送给服务器的数据
-     */
     @Override
-    public Converter<?, RequestBody> requestBodyConverter(Type type, Annotation[] parameterAnnotations, Annotation[] methodAnnotations, Retrofit retrofit) {
-        return new FastJsonRequestBodyConverter<>();
+    public Converter<?, RequestBody> requestBodyConverter(Type type, //
+                                                          Annotation[] parameterAnnotations, //
+                                                          Annotation[] methodAnnotations, //
+                                                          Retrofit retrofit) {
+        return new RequestBodyConverter<RequestBody>();
     }
 
+    public ParserConfig getParserConfig() {
+        return parserConfig;
+    }
+
+    public FastJsonConverterFactory setParserConfig(ParserConfig config) {
+        this.parserConfig = config;
+        return this;
+    }
+
+    public int getParserFeatureValues() {
+        return featureValues;
+    }
+
+    public FastJsonConverterFactory setParserFeatureValues(int featureValues) {
+        this.featureValues = featureValues;
+        return this;
+    }
+
+    public Feature[] getParserFeatures() {
+        return features;
+    }
+
+    public FastJsonConverterFactory setParserFeatures(Feature[] features) {
+        this.features = features;
+        return this;
+    }
+
+    public SerializeConfig getSerializeConfig() {
+        return serializeConfig;
+    }
+
+    public FastJsonConverterFactory setSerializeConfig(SerializeConfig serializeConfig) {
+        this.serializeConfig = serializeConfig;
+        return this;
+    }
+
+    public SerializerFeature[] getSerializerFeatures() {
+        return serializerFeatures;
+    }
+
+    public FastJsonConverterFactory setSerializerFeatures(SerializerFeature[] features) {
+        this.serializerFeatures = features;
+        return this;
+    }
+
+    private final class ResponseBodyConverter<T> implements Converter<ResponseBody, T> {
+        private Type type;
+
+        ResponseBodyConverter(Type type) {
+            this.type = type;
+        }
+
+        public T convert(ResponseBody value) throws IOException {
+            try {
+                return JSON.parseObject(value.string()
+                        , type
+                        , parserConfig
+                        , featureValues
+                        , features != null
+                                ? features
+                                : EMPTY_SERIALIZER_FEATURES
+                );
+            } finally {
+                value.close();
+            }
+        }
+    }
+
+    private final class RequestBodyConverter<T> implements Converter<T, RequestBody> {
+        RequestBodyConverter() {
+        }
+
+        public RequestBody convert(T value) throws IOException {
+            byte[] content = JSON.toJSONBytes(value
+                    , serializeConfig == null
+                            ? SerializeConfig.globalInstance
+                            : serializeConfig
+                    , serializerFeatures == null
+                            ? SerializerFeature.EMPTY
+                            : serializerFeatures
+            );
+
+            return RequestBody.create(MEDIA_TYPE, content);
+        }
+    }
 }
